@@ -35,14 +35,17 @@ class LanguageModel(nn.Module):
         out, h = self.lstm(out, h)
         out = self.readout(out)
         return out, h
-        
-print(torch.cuda.current_device())
-torch.cuda.set_device(1)
+
+if torch.cuda.is_available():
+    print(torch.cuda.current_device())
+    torch.cuda.set_device(1)
 
 
 # Initialize model
 model = LanguageModel()
-model.cuda()
+
+if torch.cuda.is_available():
+    model.cuda()
 
 # Loading training data in the form of list of tensor tuples
 data = pickle.load(open('data/train.txt.pkl','rb'))
@@ -59,12 +62,19 @@ optim = torch.optim.Adam(model.parameters(), lr=learning_rate)
 for epoch in range(0, 30):
     start_time = time.time()
     for line in data:
-        char_embed = line[0].cuda()
-        word_embed = line[1].cuda()
-        h = torch.zeros(1, 1, 100).cuda()
-        c = torch.zeros(1, 1, 100).cuda()
+        if torch.cuda.is_available():
+            char_embed = line[0].cuda()
+            word_embed = line[1].cuda()
+            h = torch.zeros(1, 1, 100).cuda()
+            c = torch.zeros(1, 1, 100).cuda()
+            loss = torch.zeros(1).cuda()
+        else:
+            char_embed = line[0]
+            word_embed = line[1]
+            h = torch.zeros(1, 1, 100)
+            c = torch.zeros(1, 1, 100)
+            loss = torch.zeros(1)
         optim.zero_grad()
-        loss = torch.zeros(1).cuda()
         for i in range(0, len(line)-1):
             y, (h, c) = model(char_embed[i], (h, c))
             loss += criterion(y.view(1, 10000), word_embed[i].view(1))
