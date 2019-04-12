@@ -2,6 +2,7 @@ import torch
 import torch.nn as nn
 from torch.autograd import Variable
 import pickle
+import time
 
 
 class LanguageModel(nn.Module):
@@ -35,12 +36,16 @@ class LanguageModel(nn.Module):
         out = self.readout(out)
         return out, h
         
+print(torch.cuda.current_device())
+torch.cuda.set_device(1)
 
+
+# Initialize model
 model = LanguageModel()
 model.cuda()
 
-# Loading data in the form of list of tensor tuples
-data = pickle.load(open('data/train.p','rb'))
+# Loading training data in the form of list of tensor tuples
+data = pickle.load(open('data/train.txt.pkl','rb'))
 print('Data loaded')
 
 learning_rate = 0.05
@@ -49,9 +54,10 @@ learning_rate = 0.05
 criterion = nn.CrossEntropyLoss()
 
 # Optimizer
-optim = torch.optim.Adam(model.parameters())
+optim = torch.optim.Adam(model.parameters(), lr=learning_rate)
 
 for epoch in range(0, 30):
+    start_time = time.time()
     for line in data:
         char_embed = line[0].cuda()
         word_embed = line[1].cuda()
@@ -64,8 +70,12 @@ for epoch in range(0, 30):
             loss += criterion(y.view(1, 10000), word_embed[i].view(1))
         loss.backward()
         optim.step()
+    end_time = time.time()
 
-    # Print the loss and save the model to a file
-    print('Epoch : ' + str(epoch) + '\t\tLoss : ' + str(loss))
-    pickle.dump(model, open('model/epoch_' + str(epoch) + '.p','wb'))
+    # Print statistics
+    print('Time for epoch ' + str(epoch + 1) + ' : ' + str(end_time - start_time))
+    print('Loss : ' + str(loss))
+
+    # Save current model to a file
+    pickle.dump(model, open('model/epoch_' + str(epoch + 1) + '.pkl','wb'))
 

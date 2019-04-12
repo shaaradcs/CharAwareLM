@@ -1,9 +1,26 @@
 import pickle
 import torch
 from vocabulary import *
+import sys
 
-char_vocabulary = CharVocabulary('data/train.txt')
-word_vocabulary = WordVocabulary('data/train.txt')
+
+if len(sys.argv) == 2 and sys.argv[1] == '--build':
+    # Vocabulary to be built
+    char_vocabulary = CharVocabulary('data/train.txt')
+    word_vocabulary = WordVocabulary('data/train.txt')
+    build = True
+else:
+    # Try to find already existing vocabulary
+    build = False
+    try:
+        char_vocabulary = pickle.load(open('data/char_vocab.pkl', 'rb'))
+        word_vocabulary = pickle.load(open('data/word_vocab.pkl', 'rb'))
+    except:
+        # No vocabulary exists. To be built
+        build = True
+        char_vocabulary = CharVocabulary('data/train.txt')
+        word_vocabulary = WordVocabulary('data/train.txt')
+
 
 ################################################################################
 # Convert the training file into a suitable index representation described below:
@@ -12,7 +29,23 @@ word_vocabulary = WordVocabulary('data/train.txt')
 # tupl1 : Tensor, each element of which corresonds to a character index representation of a word in the sentence
 # tupl2 : Tensor, each element of which is the index of a word in the sentence
 
-fp = open('data/train.txt')
+# File to be transformed into a suitable representation
+if len(sys.argv) == 3:
+    file_name = sys.argv[2]
+elif len(sys.argv) == 2 and sys.argv[1] != '--build':
+        file_name = sys.argv[1]
+else:
+    file_name = 'data/train.txt'
+
+try:
+    fp = open(file_name)
+    print('Transforming file : ' + file_name)
+except:
+    file_name = 'data/train.txt'
+    fp = open(file_name)
+    print('Transforming file : ' + file_name)
+
+
 data = list()
 for line in fp.readlines():
     words = line.split()
@@ -38,9 +71,10 @@ for line in fp.readlines():
 
 
 # Dump the training file as a list of tensor tuples in a new file
-pickle.dump(data, open('data/train.p', 'wb'))
+pickle.dump(data, open(file_name + str('.pkl'), 'wb'))
 
 # Dump the vocabularies into files as well, just in case they are needed
-pickle.dump(char_vocabulary, open('data/char_vocab.p', 'wb'))
-pickle.dump(word_vocabulary, open('data/word_vocab.p', 'wb'))
+if build == True:
+    pickle.dump(char_vocabulary, open('data/char_vocab.pkl', 'wb'))
+    pickle.dump(word_vocabulary, open('data/word_vocab.pkl', 'wb'))
 
