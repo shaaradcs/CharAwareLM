@@ -24,10 +24,9 @@ class LanguageModel(nn.Module):
         self.lstm = nn.LSTM(hidden_dim, hidden_dim, layer_dim)
         self.readout = nn.Linear(hidden_dim, output_dim)
 
-        print('Initialized module')
-
     def forward(self, x, h):
         # x : Sequence of indices corresponding to characters of a word
+        # h : Tuple containing values of hidden and cell state of LSTM
         out = self.embedding(x).view(1, 1, self.input_dim_1 * self.input_dim_2)
         out = self.cnn(out)
         out = self.tanh(out)
@@ -37,9 +36,13 @@ class LanguageModel(nn.Module):
         return out, h
 
 if torch.cuda.is_available():
-    print(torch.cuda.current_device())
+    print('GPU available')
+    print('Current(default) GPU device : ' + str(torch.cuda.current_device()))
+    device = 1
     torch.cuda.set_device(1)
-
+    print('GPU device set to ' + str(torch.cuda.current_device()))
+else:
+    print('GPU unavailable. Using CPU')
 
 # Initialize model
 model = LanguageModel()
@@ -48,10 +51,13 @@ if torch.cuda.is_available():
     model.cuda()
 
 # Loading training data in the form of list of tensor tuples
-data = pickle.load(open('data/train.txt.pkl','rb'))
-print('Data loaded')
+data = pickle.load(open('data/train.txt.pkl', 'rb'))
+print('Training data loaded')
 
-learning_rate = 0.05
+valid_data = pickle.load(open('data/valid.txt.pkl', 'rb'))
+print('Validation data loaded')
+
+learning_rate = 0.07
 
 # Loss
 criterion = nn.CrossEntropyLoss()
@@ -59,7 +65,12 @@ criterion = nn.CrossEntropyLoss()
 # Optimizer
 optim = torch.optim.Adam(model.parameters(), lr=learning_rate)
 
+# Load model
+# model = pickle.load(open('model/epoch_3.pkl', 'rb'))
+
 for epoch in range(0, 30):
+    
+    # Perform one training pass over the entire training set
     start_time = time.time()
     for line in data:
         if torch.cuda.is_available():
@@ -67,24 +78,52 @@ for epoch in range(0, 30):
             word_embed = line[1].cuda()
             h = torch.zeros(1, 1, 100).cuda()
             c = torch.zeros(1, 1, 100).cuda()
-            loss = torch.zeros(1).cuda()
+            train_loss = torch.zeros(1).cuda()
         else:
             char_embed = line[0]
             word_embed = line[1]
             h = torch.zeros(1, 1, 100)
             c = torch.zeros(1, 1, 100)
-            loss = torch.zeros(1)
+            train_loss = torch.zeros(1)
         optim.zero_grad()
         for i in range(0, len(line)-1):
             y, (h, c) = model(char_embed[i], (h, c))
-            loss += criterion(y.view(1, 10000), word_embed[i].view(1))
-        loss.backward()
+            train_loss += criterion(y.view(1, 10000), word_embed[i].view(1))
+        train_loss.backward()
         optim.step()
     end_time = time.time()
+    
+    # Calculate the perplexity on the validation set
+    if torch.cuda.is_available():
+        perplexity = torch.cuda.FloatTensor(len(valid_data))
+    else:
+        perplexity = torch.FloatTensor(len(valid_data))
+    ind = 0
+    for line in valid_data:
+        if torch.cuda.is_available():
+            char_embed = line[0].cuda()
+            word_embed = line[1].cuda()
+            h = torch.zeros(1, 1, 100).cuda()
+            c = torch.zeros(1, 1, 100).cuda()
+            valid_loss = torch.cuda.FloatTensor(len(line))
+        else:
+            char_embed = line[0]
+            word_embed = line[1]
+            h = torch.zeros(1, 1, 100)
+            c = torch.zeros(1, 1, 100)
+            valid_loss = torch.FloatTensor(len(line))
+        for i in range(0, len(line)-1):
+            y, (h, c) = model(char_embed[i], (h, c))
+            valid_loss[i] = criterion(y.view(1, 10000), word_embed[i].view(1))
+        perplexity[ind] = torch.exp(torch.mean(valid_loss))
+        ind += 1
+    perplexity_avg = torch.mean(perplexity)
 
     # Print statistics
-    print('Time for epoch ' + str(epoch + 1) + ' : ' + str(end_time - start_time))
-    print('Loss : ' + str(loss))
+    print('Epoch ' + str(epoch + 1) + str(':'))
+    print('Time for epoch : ' + str(end_time - start_time))
+    print('Training loss : ' + str(train_loss))
+    print('Validation perplexity : ' + str(perplexity_avg))
 
     # Save current model to a file
     pickle.dump(model, open('model/epoch_' + str(epoch + 1) + '.pkl','wb'))
