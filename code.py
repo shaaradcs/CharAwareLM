@@ -25,20 +25,22 @@ class LanguageModel(nn.Module):
         self.lstm = nn.LSTM(input_size=hidden_dim, hidden_size=hidden_dim, num_layers=layer_dim)
         self.readout = nn.Linear(hidden_dim, output_dim)
 
-    # def forward(self, x):
-    #     # x : Sequence of indices corresponding to characters of a word
-    #     # h : Tuple containing values of hidden and cell state of LSTM
-    #     emb = self.embedding(x)
-    #     h = torch.zeros(1, 1, self.hidden_dim).cuda()
-    #     c = torch.zeros(1, 1, self.hidden_dim).cuda()
-    #     results = torch.FloatTensor(x.shape[0], self.output_dim).cuda()
-    #     for i in range(x.shape[0]):
-    #         out = self.cnn(emb[i].view(1, 1, self.input_dim_1 * self.input_dim_2))
-    #         out = self.tanh(out)
-    #         out = self.maxpool(out).view(1, 1, self.hidden_dim)
-    #         out, (h, c) = self.lstm(out, (h, c))
-    #         results[i] = self.readout(out)
-    #     return results
+    """
+    def forward(self, x):
+        # x : Sequence of indices corresponding to characters of a word
+        # h : Tuple containing values of hidden and cell state of LSTM
+        emb = self.embedding(x)
+        h = torch.zeros(1, 1, self.hidden_dim).cuda()
+        c = torch.zeros(1, 1, self.hidden_dim).cuda()
+        results = torch.FloatTensor(x.shape[0], self.output_dim).cuda()
+        for i in range(x.shape[0]):
+            out = self.cnn(emb[i].view(1, 1, self.input_dim_1 * self.input_dim_2))
+            out = self.tanh(out)
+            out = self.maxpool(out).view(1, 1, self.hidden_dim)
+            out, (h, c) = self.lstm(out, (h, c))
+            results[i] = self.readout(out)
+        return results
+    """
 
     def forward(self, x):
         # x : Sequence of indices corresponding to characters of a word
@@ -84,6 +86,7 @@ valid_data = pickle.load(open('data/valid.txt.pkl', 'rb'))
 print('Validation data loaded')
 
 learning_rate = 1
+batch_size = 128
 
 # Loss
 criterion = nn.CrossEntropyLoss()
@@ -91,12 +94,14 @@ criterion = nn.CrossEntropyLoss()
 # Optimizer
 optim = torch.optim.Adam(model.parameters(), lr=learning_rate)
 
-batch_size = 128
 # Load model
 # model = pickle.load(open('model/epoch_11.pkl', 'rb'))
 
 # for epoch in range(0, 30):
 for epoch in range(0, 30):
+
+    # Pass through the entire training data once, in batches
+    # Also, calculate the average loss over all sentences
     training_loss = torch.zeros(1).float().cuda()
     for step in tqdm(range(0, len(data)//batch_size + 1)):
         offset = (step * batch_size) % (len(data) - batch_size)
