@@ -39,7 +39,7 @@ if torch.cuda.is_available():
     print('GPU available')
     print('Current(default) GPU device : ' + str(torch.cuda.current_device()))
     device = 1
-    torch.cuda.set_device(1)
+    torch.cuda.set_device(device)
     print('GPU device set to ' + str(torch.cuda.current_device()))
 else:
     print('GPU unavailable. Using CPU')
@@ -54,6 +54,7 @@ if torch.cuda.is_available():
 data = pickle.load(open('data/train.txt.pkl', 'rb'))
 print('Training data loaded')
 
+# valid_data = pickle.load(open('data/valid.txt.pkl', 'rb'))
 valid_data = pickle.load(open('data/valid.txt.pkl', 'rb'))
 print('Validation data loaded')
 
@@ -66,8 +67,9 @@ criterion = nn.CrossEntropyLoss()
 optim = torch.optim.Adam(model.parameters(), lr=learning_rate)
 
 # Load model
-# model = pickle.load(open('model/epoch_3.pkl', 'rb'))
+# model = pickle.load(open('model/epoch_11.pkl', 'rb'))
 
+# for epoch in range(0, 30):
 for epoch in range(0, 30):
     
     # Perform one training pass over the entire training set
@@ -76,19 +78,19 @@ for epoch in range(0, 30):
         if torch.cuda.is_available():
             char_embed = line[0].cuda()
             word_embed = line[1].cuda()
-            h = torch.zeros(1, 1, 100).cuda()
-            c = torch.zeros(1, 1, 100).cuda()
-            train_loss = torch.zeros(1).cuda()
+            h = torch.zeros(1, 1, 100, requires_grad=True).cuda()
+            c = torch.zeros(1, 1, 100, requires_grad=True).cuda()
+            train_loss = torch.zeros(1, requires_grad=True).cuda()
         else:
             char_embed = line[0]
             word_embed = line[1]
-            h = torch.zeros(1, 1, 100)
-            c = torch.zeros(1, 1, 100)
-            train_loss = torch.zeros(1)
+            h = torch.zeros(1, 1, 100, requires_grad=True)
+            c = torch.zeros(1, 1, 100, requires_grad=True)
+            train_loss = torch.zeros(1, requires_grad=True)
         optim.zero_grad()
-        for i in range(0, len(line)-1):
+        for i in range(0, char_embed.size(0)-1):
             y, (h, c) = model(char_embed[i], (h, c))
-            train_loss += criterion(y.view(1, 10000), word_embed[i].view(1))
+            train_loss += criterion(y.view(1, 10000), word_embed[i+1].view(1))
         train_loss.backward()
         optim.step()
     end_time = time.time()
@@ -105,16 +107,16 @@ for epoch in range(0, 30):
             word_embed = line[1].cuda()
             h = torch.zeros(1, 1, 100).cuda()
             c = torch.zeros(1, 1, 100).cuda()
-            valid_loss = torch.cuda.FloatTensor(len(line))
+            valid_loss = torch.cuda.FloatTensor(char_embed.size(0))
         else:
             char_embed = line[0]
             word_embed = line[1]
             h = torch.zeros(1, 1, 100)
             c = torch.zeros(1, 1, 100)
-            valid_loss = torch.FloatTensor(len(line))
-        for i in range(0, len(line)-1):
+            valid_loss = torch.FloatTensor(char_embed.size(0)-1)
+        for i in range(0, char_embed.size(0)-1):
             y, (h, c) = model(char_embed[i], (h, c))
-            valid_loss[i] = criterion(y.view(1, 10000), word_embed[i].view(1))
+            valid_loss[i] = criterion(y.view(1, 10000), word_embed[i+1].view(1))
         perplexity[ind] = torch.exp(torch.mean(valid_loss))
         ind += 1
     perplexity_avg = torch.mean(perplexity)
