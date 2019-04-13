@@ -3,6 +3,7 @@ import torch.nn as nn
 from torch.autograd import Variable
 import pickle
 import time
+from tqdm import tqdm
 
 
 class LanguageModel(nn.Module):
@@ -74,7 +75,7 @@ for epoch in range(0, 30):
     
     # Perform one training pass over the entire training set
     start_time = time.time()
-    for line in data:
+    for line in tqdm(data):
         if torch.cuda.is_available():
             char_embed = line[0].cuda().detach()
             word_embed = line[1].cuda().detach()
