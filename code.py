@@ -58,7 +58,7 @@ print('Training data loaded')
 valid_data = pickle.load(open('data/valid.txt.pkl', 'rb'))
 print('Validation data loaded')
 
-learning_rate = 0.07
+learning_rate = 1
 
 # Loss
 criterion = nn.CrossEntropyLoss()
@@ -76,14 +76,14 @@ for epoch in range(0, 30):
     start_time = time.time()
     for line in data:
         if torch.cuda.is_available():
-            char_embed = line[0].cuda()
-            word_embed = line[1].cuda()
+            char_embed = line[0].cuda().detach()
+            word_embed = line[1].cuda().detach()
             h = torch.zeros(1, 1, 100, requires_grad=True).cuda()
             c = torch.zeros(1, 1, 100, requires_grad=True).cuda()
             train_loss = torch.zeros(1, requires_grad=True).cuda()
         else:
-            char_embed = line[0]
-            word_embed = line[1]
+            char_embed = line[0].detach()
+            word_embed = line[1].detach()
             h = torch.zeros(1, 1, 100, requires_grad=True)
             c = torch.zeros(1, 1, 100, requires_grad=True)
             train_loss = torch.zeros(1, requires_grad=True)
@@ -97,23 +97,23 @@ for epoch in range(0, 30):
     
     # Calculate the perplexity on the validation set
     if torch.cuda.is_available():
-        perplexity = torch.cuda.FloatTensor(len(valid_data))
+        perplexity = torch.cuda.FloatTensor(len(valid_data), requires_grad=False)
     else:
-        perplexity = torch.FloatTensor(len(valid_data))
+        perplexity = torch.FloatTensor(len(valid_data), requires_grad=False)
     ind = 0
     for line in valid_data:
         if torch.cuda.is_available():
-            char_embed = line[0].cuda()
-            word_embed = line[1].cuda()
-            h = torch.zeros(1, 1, 100).cuda()
-            c = torch.zeros(1, 1, 100).cuda()
-            valid_loss = torch.cuda.FloatTensor(char_embed.size(0))
+            char_embed = line[0].cuda().detach()
+            word_embed = line[1].cuda().detach()
+            h = torch.zeros(1, 1, 100, requires_grad=False).cuda()
+            c = torch.zeros(1, 1, 100, requires_grad=False).cuda()
+            valid_loss = torch.cuda.FloatTensor(char_embed.size(0), requires_grad=False)
         else:
-            char_embed = line[0]
-            word_embed = line[1]
-            h = torch.zeros(1, 1, 100)
-            c = torch.zeros(1, 1, 100)
-            valid_loss = torch.FloatTensor(char_embed.size(0)-1)
+            char_embed = line[0].detach()
+            word_embed = line[1].detach()
+            h = torch.zeros(1, 1, 100, requires_grad=False)
+            c = torch.zeros(1, 1, 100, requires_grad=False)
+            valid_loss = torch.FloatTensor(char_embed.size(0)-1, requires_grad=False)
         for i in range(0, char_embed.size(0)-1):
             y, (h, c) = model(char_embed[i], (h, c))
             valid_loss[i] = criterion(y.view(1, 10000), word_embed[i+1].view(1))
@@ -124,7 +124,7 @@ for epoch in range(0, 30):
     # Print statistics
     print('Epoch ' + str(epoch + 1) + str(':'))
     print('Time for epoch : ' + str(end_time - start_time))
-    print('Training loss : ' + str(train_loss))
+    print('Training loss(last example) : ' + str(train_loss))
     print('Validation perplexity : ' + str(perplexity_avg))
 
     # Save current model to a file
