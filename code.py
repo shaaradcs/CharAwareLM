@@ -97,9 +97,9 @@ for epoch in range(0, 30):
     
     # Calculate the perplexity on the validation set
     if torch.cuda.is_available():
-        perplexity = torch.cuda.FloatTensor(len(valid_data), requires_grad=False)
+        perplexity = torch.cuda.FloatTensor(len(valid_data))
     else:
-        perplexity = torch.FloatTensor(len(valid_data), requires_grad=False)
+        perplexity = torch.FloatTensor(len(valid_data))
     ind = 0
     for line in valid_data:
         if torch.cuda.is_available():
@@ -107,13 +107,13 @@ for epoch in range(0, 30):
             word_embed = line[1].cuda().detach()
             h = torch.zeros(1, 1, 100, requires_grad=False).cuda()
             c = torch.zeros(1, 1, 100, requires_grad=False).cuda()
-            valid_loss = torch.cuda.FloatTensor(char_embed.size(0), requires_grad=False)
+            valid_loss = torch.cuda.FloatTensor(char_embed.size(0)-1)
         else:
             char_embed = line[0].detach()
             word_embed = line[1].detach()
             h = torch.zeros(1, 1, 100, requires_grad=False)
             c = torch.zeros(1, 1, 100, requires_grad=False)
-            valid_loss = torch.FloatTensor(char_embed.size(0)-1, requires_grad=False)
+            valid_loss = torch.FloatTensor(char_embed.size(0)-1)
         for i in range(0, char_embed.size(0)-1):
             y, (h, c) = model(char_embed[i], (h, c))
             valid_loss[i] = criterion(y.view(1, 10000), word_embed[i+1].view(1))
