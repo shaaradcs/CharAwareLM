@@ -78,14 +78,14 @@ for epoch in range(0, 30):
         if torch.cuda.is_available():
             char_embed = line[0].cuda().detach()
             word_embed = line[1].cuda().detach()
-            h = torch.zeros(1, 1, 100, requires_grad=True).cuda()
-            c = torch.zeros(1, 1, 100, requires_grad=True).cuda()
+            h = torch.zeros(1, 1, 100).cuda()
+            c = torch.zeros(1, 1, 100).cuda()
             train_loss = torch.zeros(1, requires_grad=True).cuda()
         else:
             char_embed = line[0].detach()
             word_embed = line[1].detach()
-            h = torch.zeros(1, 1, 100, requires_grad=True)
-            c = torch.zeros(1, 1, 100, requires_grad=True)
+            h = torch.zeros(1, 1, 100)
+            c = torch.zeros(1, 1, 100)
             train_loss = torch.zeros(1, requires_grad=True)
         optim.zero_grad()
         for i in range(0, char_embed.size(0)-1):
