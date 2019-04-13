@@ -105,18 +105,18 @@ for epoch in range(0, 30):
         if torch.cuda.is_available():
             char_embed = line[0].cuda().detach()
             word_embed = line[1].cuda().detach()
-            h = torch.zeros(1, 1, 100, requires_grad=False).cuda()
-            c = torch.zeros(1, 1, 100, requires_grad=False).cuda()
+            h_ = torch.zeros(1, 1, 100, requires_grad=False).cuda()
+            c_ = torch.zeros(1, 1, 100, requires_grad=False).cuda()
             valid_loss = torch.cuda.FloatTensor(char_embed.size(0)-1)
         else:
             char_embed = line[0].detach()
             word_embed = line[1].detach()
-            h = torch.zeros(1, 1, 100, requires_grad=False)
-            c = torch.zeros(1, 1, 100, requires_grad=False)
+            h_ = torch.zeros(1, 1, 100, requires_grad=False)
+            c_ = torch.zeros(1, 1, 100, requires_grad=False)
             valid_loss = torch.FloatTensor(char_embed.size(0)-1)
         for i in range(0, char_embed.size(0)-1):
-            y, (h, c) = model(char_embed[i], (h, c))
-            valid_loss[i] = criterion(y.view(1, 10000), word_embed[i+1].view(1))
+            y_, (h_, c_) = model(char_embed[i], (h_, c_))
+            valid_loss[i] = criterion(y_.view(1, 10000), word_embed[i+1].view(1))
         perplexity[ind] = torch.exp(torch.mean(valid_loss))
         ind += 1
     perplexity_avg = torch.mean(perplexity)
