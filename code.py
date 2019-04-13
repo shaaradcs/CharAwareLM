@@ -97,12 +97,10 @@ batch_size = 128
 
 # for epoch in range(0, 30):
 for epoch in range(0, 30):
-    # start_time = time.time()
+    training_loss = torch.zeros(1).float().cuda()
     for step in tqdm(range(0, len(data)//batch_size + 1)):
         offset = (step * batch_size) % (len(data) - batch_size)
         batch_data = data[offset:(offset + batch_size)]
-    # Perform one training pass over the entire training set
-    # for line in tqdm(data):
         if torch.cuda.is_available():
             char_index = torch.stack([batch_data[i][0] for i in range(len(batch_data))]).cuda()
             word_index = torch.stack([batch_data[i][1] for i in range(len(batch_data))]).cuda()
@@ -117,40 +115,26 @@ for epoch in range(0, 30):
             train_loss += criterion(results[i], word_index[i])
         train_loss.backward()
         optim.step()
-    # end_time = time.time()
+        training_loss += train_loss
+    training_loss = training_loss / (len(data) // batch_size)
 
-    # # Calculate the perplexity on the validation set
-    # with torch.no_grad():
-    #     if torch.cuda.is_available():
-    #         perplexity = torch.cuda.FloatTensor(len(valid_data))
-    #     else:
-    #         perplexity = torch.FloatTensor(len(valid_data))
-    #     ind = 0
-    #     for line in valid_data:
-    #         if torch.cuda.is_available():
-    #             char_embed = line[0].cuda()
-    #             word_embed = line[1].cuda()
-    #             h_ = torch.zeros(1, 1, 100).cuda()
-    #             c_ = torch.zeros(1, 1, 100).cuda()
-    #             valid_loss = torch.cuda.FloatTensor(char_embed.size(0)-1)
-    #         else:
-    #             char_embed = line[0]
-    #             word_embed = line[1]
-    #             h_ = torch.zeros(1, 1, 100)
-    #             c_ = torch.zeros(1, 1, 100)
-    #             valid_loss = torch.FloatTensor(char_embed.size(0)-1)
-    #         for i in range(0, char_embed.size(0)-1):
-    #             y_, (h_, c_) = model(char_embed[i], (h_, c_))
-    #             valid_loss[i] = criterion(y_.view(1, 10000), word_embed[i+1].view(1))
-    #         perplexity[ind] = torch.exp(torch.mean(valid_loss))
-    #         ind += 1
-    #     perplexity_avg = torch.mean(perplexity)
+    # Calculate the perplexity on the validation set
+    with torch.no_grad():
+        if torch.cuda.is_available():
+            perplexity = torch.zeros(1).float().cuda()
+        else:
+            perplexity = torch.zeros(1).float()
+        for line in valid_data:
+            char_index = line[0].view(1, line[0].shape[0], -1).cuda()
+            word_index = line[1].cuda()
+            result = model(char_index)
+            perplexity += torch.exp(criterion(result[0], word_index))
+        perplexity = perplexity / len(valid_data)
 
     # Print statistics
     print('Epoch ' + str(epoch + 1) + str(':'))
-    # print('Time for epoch : ' + str(end_time - start_time))
-    print('Training loss(last example) : ' + str(train_loss))
-    # print('Validation perplexity : ' + str(perplexity_avg))
+    print('Training loss : ' + str(training_loss))
+    print('Validation perplexity : ' + str(perplexity))
 
     # Save current model to a file
     pickle.dump(model, open('model/epoch_' + str(epoch + 1) + '.pkl','wb'))
