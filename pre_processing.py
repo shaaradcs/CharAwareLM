@@ -3,7 +3,7 @@ import torch
 from vocabulary import *
 import sys
 
-seq_length = 82
+seq_length = 35
 
 if len(sys.argv) == 2 and sys.argv[1] == '--build':
     # Vocabulary to be built
@@ -69,7 +69,7 @@ for line in fp.readlines():
         while len(char_embed_word) < 32:
             char_embed_word.append(char_vocabulary.char_index(char_vocabulary.padding_char))
         for i in range(0,len(char_embed_word)):
-            char_embed[word_ind][i] = char_embed_word[i]
+            char_embed[word_ind + 1][i] = char_embed_word[i]
     
     # Word index tensor
     word_embed = torch.LongTensor(length)
