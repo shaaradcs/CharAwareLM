@@ -7,7 +7,7 @@ from tqdm import tqdm
 
 
 class LanguageModel(nn.Module):
-    def __init__(self, char_vocab_size=55, input_dim_1=15, input_dim_2=32, kernel_width=5, hidden_dim=1000, layer_dim=2, output_dim=9976):
+    def __init__(self, char_vocab_size=55, input_dim_1=15, input_dim_2=32, kernel_width=5, hidden_dim=1000, layer_dim=2, output_dim=9999):
         super(LanguageModel, self).__init__()
 
         self.char_vocab_size = char_vocab_size
@@ -19,27 +19,32 @@ class LanguageModel(nn.Module):
         self.output_dim = output_dim
 
         self.embedding = nn.Embedding(char_vocab_size, input_dim_1)
-        initrange = (2.0 / (char_vocab_size + input_dim_1)) ** 0.5
-        self.embedding.weight.data.uniform_(-initrange, initrange)
+
+        lstm_hidden = 300
 
         self.cnn = nn.Conv1d(in_channels=1, out_channels=hidden_dim, kernel_size=(kernel_width * input_dim_1), stride=input_dim_1)
         self.tanh = nn.Tanh()
         self.maxpool = nn.MaxPool1d(kernel_size=(input_dim_2 - kernel_width + 1), padding=0)
-        self.lstm = nn.LSTM(input_size=hidden_dim, hidden_size=hidden_dim, num_layers=layer_dim)
-        self.readout = nn.Linear(hidden_dim, output_dim)
+        self.lstm = nn.LSTM(input_size=hidden_dim, hidden_size=lstm_hidden, num_layers=layer_dim, dropout=0.5)
+        self.dropout = nn.Dropout(p=0.5)
+        self.readout = nn.Linear(lstm_hidden, output_dim)
 
-
+    def init_weights(self):
+        initrange = 0.05
+        self.embedding.weight.data.uniform_(-initrange, initrange)
+        self.readout.weight.data.uniform_(-initrange, initrange)
+        self.readout.bias.data.zero_()
+        
     def forward(self, x):
-
         emb = self.embedding(x).permute(1,0,2,3)
         cnn_outs = torch.FloatTensor(x.shape[1], x.shape[0], self.hidden_dim).cuda()
         for i in range(x.shape[1]):
             out = self.cnn(emb[i].view(x.shape[0], 1, self.input_dim_1 * self.input_dim_2))
             out = self.tanh(out)
             cnn_outs[i] = self.maxpool(out).view(x.shape[0], self.hidden_dim)
-
         out, (h, c) = self.lstm(cnn_outs)
-        results = self.readout(out.permute(1,0,2))
+        out = self.dropout(out.permute(1,0,2))
+        results = self.readout(out)
         return results
 
 """
@@ -55,6 +60,7 @@ else:
 
 # Initialize model
 model = LanguageModel()
+model.init_weights()
 
 if torch.cuda.is_available():
     model.cuda()
@@ -76,7 +82,7 @@ batch_size = 20
 criterion = nn.CrossEntropyLoss()
 
 # Optimizer
-optim = torch.optim.Adam(model.parameters(), lr=learning_rate)
+optim = torch.optim.SGD(model.parameters(), lr=learning_rate)
 
 # Load model
 # model = pickle.load(open('model/epoch_11.pkl', 'rb'))
