@@ -1,5 +1,6 @@
 import pickle
 import torch
+import numpy as np
 from vocabulary import *
 import sys
 
@@ -50,7 +51,6 @@ except:
 data = list()
 for line in fp.readlines():
     words = line.split()
-
     if seq_length == None:
         length = len(words)
     else:
@@ -58,35 +58,42 @@ for line in fp.readlines():
 
     # Character index tensor
     char_embed = torch.LongTensor(length, 32)
-    for word_ind in range(-1, length-1):
+    for word_ind in range(0, length):
+        """
         if word_ind == -1:
             word = 30 * char_vocabulary.start_sentence_char
-        elif word_ind < len(words):
+        """
+        if word_ind < len(words):
             word = words[word_ind]
         else:
             word = ''
         char_embed_word = char_vocabulary.char_index_list(word)
+        if len(char_embed_word) > 32:
+            char_embed_word[31] = char_vocabulary.char_index(char_vocabulary.end_word_char)
         while len(char_embed_word) < 32:
             char_embed_word.append(char_vocabulary.char_index(char_vocabulary.padding_char))
-        for i in range(0,len(char_embed_word)):
-            char_embed[word_ind + 1][i] = char_embed_word[i]
+        """
+        for i in range(0,32):
+            char_embed[word_ind][i] = char_embed_word[i]
+        """
+        char_embed[word_ind] = torch.from_numpy(np.array(char_embed_word[:32]))
     
     # Word index tensor
     word_embed = torch.LongTensor(length)
-    for i in range(0, length-1):
+    for i in range(0, length):
         if i < len(words):
             word = words[i]
         else:
             word = ''
         word_embed[i] = word_vocabulary.word_index(word)
-    word_embed[length - 1] = word_vocabulary.word_index('')
+    # word_embed[length - 1] = word_vocabulary.word_index('')
 
     # Append them a tuple to the data
     data.append( (char_embed, word_embed) )
 
 
 
-# Dump the training file as a list of tensor tuples in a new file
+# Dump the input file as a list of tensor tuples in a new file
 pickle.dump(data, open(file_name + str('.pkl'), 'wb'))
 
 # Dump the vocabularies into files as well, just in case they are needed
