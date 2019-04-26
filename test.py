@@ -11,7 +11,7 @@ import sys
 if len(sys.argv) > 1:
     model_file = sys.argv[1]
 else:
-    model_file = 'model/epoch_30.pkl'
+    model_file = 'model/epoch_12.pkl'
 model = pickle.load(open(model_file, 'rb'))
 print('Using model from file : ', model_file)
 
@@ -26,17 +26,13 @@ print('Using data from file : ', data_file)
 if torch.cuda.is_available():
     model.cuda()
     model = nn.DataParallel(model)
-
 # Loss
 criterion = nn.CrossEntropyLoss()
 
 test_loss = torch.zeros(1).float().cuda()
 # Calculate the perplexity on the validation set
 with torch.no_grad():
-    if torch.cuda.is_available():
-        perplexity = torch.zeros(1).float().cuda()
-    else:
-        perplexity = torch.zeros(1).float()
+    perplexity = torch.zeros(1).float().cuda()
     for line in tqdm(data):
         if torch.cuda.is_available():
             char_index = line[0].view(1, line[0].shape[0], -1).cuda()
@@ -44,14 +40,14 @@ with torch.no_grad():
         else:
             char_index = line[0].view(1, line[0].shape[0], -1)
             word_index = line[1]
-        result_1, result_2 = model(char_index)
-        loss = criterion(result_1[0][1:word_index.shape[0]-1], word_index[2:word_index.shape[0]])
-        loss += criterion(result_2[0][1:word_index.shape[0]-1], word_index[0:word_index.shape[0]-2])
+        result = model(char_index)
+        loss = criterion(result[0], word_index[1:word_index.shape[0]-1])
         test_loss += loss
         perplexity += torch.exp(loss)
     test_loss = test_loss / len(data)
     perplexity = perplexity / len(data)
 
-# Print statistics
-print('Loss : ' + str(test_loss))
-print('Perplexity : ' + str(perplexity))
+    # Print statistics
+    print('Loss : ' + str(test_loss))
+    print('Perplexity : ' + str(perplexity))
+    print('Number of lines : ' + str(len(data)))

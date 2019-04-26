@@ -64,10 +64,10 @@ class CharVocabulary:
             self.char_vocab[char] = count
             count += 1
         self.start_word_char = char_list[0]
-        self.end_word_char = char_list[len(char_list) - 3]
-        self.unknown_char = char_list[len(char_list) - 2]
-        self.padding_char = char_list[len(char_list) - 1]
-        # self.start_sentence_char = char_list[len(char_list) - 1]
+        self.end_word_char = char_list[len(char_list) - 4]
+        self.unknown_char = char_list[len(char_list) - 3]
+        self.padding_char = char_list[len(char_list) - 2]
+        self.start_sentence_char = char_list[len(char_list) - 1]
 
     # Function to convert a character to its index as defined by char_vocab
     def char_index(self, char):

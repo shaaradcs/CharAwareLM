@@ -64,10 +64,14 @@ for epoch in range(0, 30):
             word_index = torch.stack([batch_data[i][1] for i in range(len(batch_data))])
             train_loss = torch.zeros(1, requires_grad=True)
         optim.zero_grad()
-        results_1, results_2 = model(char_index)
+        results = model(char_index)
+        # results_1, results_2 = model(char_index)
         for i in range(0, batch_size):
+            train_loss += criterion(results[i], word_index[i][1:word_index[1].shape[0]-1])
+            """
             train_loss += criterion(results_1[i][1:word_index[i].shape[0]-1], word_index[i][2:word_index[i].shape[0]])
             train_loss += criterion(results_2[i][1:word_index[i].shape[0]-1], word_index[i][0:word_index[i].shape[0]-2])
+            """
         train_loss.backward()
         torch.nn.utils.clip_grad_norm_(model.parameters(), 5.0)
         optim.step()
@@ -85,9 +89,13 @@ for epoch in range(0, 30):
         for line in tqdm(valid_data):
             char_index = line[0].view(1, line[0].shape[0], -1).cuda()
             word_index = line[1].cuda()
+            result = model(char_index)
+            loss = criterion(result[0], word_index[1:word_index.shape[0]-1])
+            """
             result_1, result_2 = model(char_index)
             loss = criterion(result_1[0][1:word_index.shape[0]-1], word_index[2:word_index.shape[0]])
             loss += criterion(result_2[0][1:word_index.shape[0]-1], word_index[0:word_index.shape[0]-2])
+            """
             validation_loss += loss
             perplexity += torch.exp(loss)
         validation_loss = validation_loss / len(valid_data)
@@ -101,4 +109,4 @@ for epoch in range(0, 30):
 
     # Save current model to a file
     model.__module__ = 'module'
-    pickle.dump(model, open('model/epoch_' + str(epoch + 1) + '.pkl','wb'))
+    pickle.dump(model, open('model_82/epoch_' + str(epoch + 1) + '.pkl','wb'))

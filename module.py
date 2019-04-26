@@ -28,21 +28,37 @@ class LanguageModel(nn.Module):
         self.sigmoid_1 = nn.Sigmoid()
         self.highway_1 = nn.Linear(hidden_dim, hidden_dim)
         self.relu_1 = nn.ReLU()
-        self.lstm = nn.LSTM(input_size=hidden_dim, hidden_size=lstm_hidden, num_layers=layer_dim, dropout=0.5, bidirectional=True)
+        self.lstm_forward_1 = nn.LSTM(input_size=hidden_dim, hidden_size=lstm_hidden, num_layers=1, dropout=0.5)
+        self.lstm_backward_1 = nn.LSTM(input_size=hidden_dim, hidden_size=lstm_hidden, num_layers=1, dropout=0.5)
+        self.lstm_forward_2 = nn.LSTM(input_size=lstm_hidden, hidden_size=lstm_hidden, num_layers=1, dropout=0.5)
+        self.lstm_backward_2 = nn.LSTM(input_size=lstm_hidden, hidden_size=lstm_hidden, num_layers=1, dropout=0.5)
         self.dropout = nn.Dropout(p=0.5)
-        self.readout_1 = nn.Linear(lstm_hidden, output_dim)
-        self.readout_2 = nn.Linear(lstm_hidden, output_dim)
+        self.readout = nn.Linear(lstm_hidden * 2, output_dim)
+
+        """
+        self.dropout_forward = nn.Dropout(p=0.5)
+        self.dropout_backward = nn.Dropout(p=0.5)
+        self.readout_forward = nn.Linear(lstm_hidden, output_dim)
+        self.readout_backward = nn.Linear(lstm_hidden, output_dim)
+        """
 
     def init_weights(self):
         initrange = 0.05
         self.embedding.weight.data.uniform_(-initrange, initrange)
-        self.readout_1.weight.data.uniform_(-initrange, initrange)
-        self.readout_1.bias.data.zero_()
-        self.readout_2.weight.data.uniform_(-initrange, initrange)
-        self.readout_2.bias.data.zero_()
+        self.readout.weight.data.uniform_(-initrange, initrange)
+        self.readout.bias.data.zero_()
+
+        """
+        self.readout_forward.weight.data.uniform_(-initrange, initrange)
+        self.readout_forward.bias.data.zero_()
+        self.readout_backward.weight.data.uniform_(-initrange, initrange)
+        self.readout_backward.bias.data.zero_()
+        """
 
     def forward(self, x):
+
         emb = self.embedding(x).permute(1,0,2,3)
+
         highway_outs = torch.FloatTensor(x.shape[1], x.shape[0], self.hidden_dim).cuda()
         for i in range(x.shape[1]):
             out = self.cnn(emb[i].view(x.shape[0], 1, self.input_dim_1 * self.input_dim_2))
@@ -50,11 +66,53 @@ class LanguageModel(nn.Module):
             cnn_out = self.maxpool(out).view(x.shape[0], self.hidden_dim)
             transform_out = self.sigmoid_1(self.transform_1(cnn_out))
             highway_outs[i] = transform_out * self.relu_1(self.highway_1(cnn_out)) +  (1 - transform_out) * cnn_out
-        out, (h, c) = self.lstm(highway_outs)
-        out = out.view(x.shape[1], x.shape[0], 2, self.lstm_hidden).permute(2, 1, 0, 3)
-        out = self.dropout(out)
-        results_1 = self.readout_1(out[0])
-        results_2 = self.readout_2(out[1])
-        return results_1, results_2
 
+        out_forward, (h, c) = self.lstm_forward_1(highway_outs)
+        out_backward, (h, c) = self.lstm_backward_1(highway_outs)
 
+        # embed_1 = torch.cat((out_forward[:x.shape[1]-2], out_backward[2:]), dim=2).permute(1, 0, 2)
+
+        out_forward, (h, c) = self.lstm_forward_2(out_forward)
+        out_backward, (h, c) = self.lstm_backward_2(out_backward)
+
+        embed_2  = torch.cat((out_forward[:x.shape[1]-2], out_backward[2:]), dim=2).permute(1, 0, 2)
+        out = self.dropout(embed_2)
+        result = self.readout(out)
+        return result
+
+        """
+        out_forward = out_forward.permute(1, 0, 2)
+        out_backward = out_backward.permute(1, 0, 2)
+
+        out_forward = self.dropout_forward(out_forward)
+        out_backward = self.dropout_backward(out_backward)
+
+        results_f = self.readout_forward(out_forward)
+        results_b = self.readout_backward(out_backward)
+
+        return results_f, results_b
+        """
+
+    def embeddings(self, x):
+
+        emb = self.embedding(x).permute(1,0,2,3)
+
+        highway_outs = torch.FloatTensor(x.shape[1], x.shape[0], self.hidden_dim).cuda()
+        for i in range(x.shape[1]):
+            out = self.cnn(emb[i].view(x.shape[0], 1, self.input_dim_1 * self.input_dim_2))
+            out = self.tanh(out)
+            cnn_out = self.maxpool(out).view(x.shape[0], self.hidden_dim)
+            transform_out = self.sigmoid_1(self.transform_1(cnn_out))
+            highway_outs[i] = transform_out * self.relu_1(self.highway_1(cnn_out)) +  (1 - transform_out) * cnn_out
+
+        out_forward, (h, c) = self.lstm_forward_1(highway_outs)
+        out_backward, (h, c) = self.lstm_backward_1(highway_outs)
+
+        embed_1 = torch.cat((out_forward, out_backward), dim=2).permute(1, 0, 2)
+
+        out_forward, (h, c) = self.lstm_forward_2(out_forward)
+        out_backward, (h, c) = self.lstm_backward_2(out_backward)
+
+        embed_2  = torch.cat((out_forward, out_backward), dim=2).permute(1, 0, 2)
+
+        return embed_1, embed_2

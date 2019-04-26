@@ -4,7 +4,7 @@ import numpy as np
 from vocabulary import *
 import sys
 
-seq_length = 35
+seq_length = 82
 
 if len(sys.argv) == 2 and sys.argv[1] == '--build':
     # Vocabulary to be built
@@ -56,14 +56,15 @@ for line in fp.readlines():
     else:
         length = seq_length
 
-    # Character index tensor
-    char_embed = torch.LongTensor(length, 32)
-    for word_ind in range(0, length):
-        """
+    #### Character index tensor
+
+    char_embed = torch.LongTensor(length + 2, 32)
+    for word_ind in range(-1, length + 1):
         if word_ind == -1:
             word = 30 * char_vocabulary.start_sentence_char
-        """
-        if word_ind < len(words):
+        elif word_ind == length:
+            word = ''
+        elif word_ind < len(words):
             word = words[word_ind]
         else:
             word = ''
@@ -72,21 +73,21 @@ for line in fp.readlines():
             char_embed_word[31] = char_vocabulary.char_index(char_vocabulary.end_word_char)
         while len(char_embed_word) < 32:
             char_embed_word.append(char_vocabulary.char_index(char_vocabulary.padding_char))
-        """
-        for i in range(0,32):
-            char_embed[word_ind][i] = char_embed_word[i]
-        """
-        char_embed[word_ind] = torch.from_numpy(np.array(char_embed_word[:32]))
+        char_embed[word_ind + 1] = torch.from_numpy(np.array(char_embed_word[:32]))
+
     
     # Word index tensor
-    word_embed = torch.LongTensor(length)
-    for i in range(0, length):
-        if i < len(words):
+    word_embed = torch.LongTensor(length + 2)
+    for i in range(-1, length + 1):
+        if i == -1:
+            word = ''
+        elif i == length:
+            word = ''
+        elif i < len(words):
             word = words[i]
         else:
             word = ''
-        word_embed[i] = word_vocabulary.word_index(word)
-    # word_embed[length - 1] = word_vocabulary.word_index('')
+        word_embed[i + 1] = word_vocabulary.word_index(word)
 
     # Append them a tuple to the data
     data.append( (char_embed, word_embed) )
